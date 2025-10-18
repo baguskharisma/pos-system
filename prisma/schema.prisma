@@ -1,0 +1,519 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "postgresqlExtensions"]
+  binaryTargets   = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [uuid_ossp(map: "uuid-ossp"), pgcrypto]
+}
+
+// ==================== ENUMS ====================
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  CASHIER
+  STAFF
+
+  @@map("user_role")
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_PAYMENT
+  AWAITING_CONFIRMATION // For cash payments pending cashier confirmation
+  PAID
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+  REFUNDED
+
+  @@map("order_status")
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+
+  @@map("order_type")
+}
+
+enum OrderSource {
+  CUSTOMER
+  CASHIER
+  ONLINE
+  PHONE
+
+  @@map("order_source")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  QRIS
+  CREDIT_CARD
+  DEBIT_CARD
+  E_WALLET
+  OTHER
+
+  @@map("payment_method")
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+  REFUNDED
+  PARTIALLY_REFUNDED
+
+  @@map("payment_status")
+}
+
+enum TransactionType {
+  PAYMENT
+  REFUND
+  PARTIAL_REFUND
+
+  @@map("transaction_type")
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+
+  @@map("discount_type")
+}
+
+enum TaxType {
+  INCLUSIVE
+  EXCLUSIVE
+
+  @@map("tax_type")
+}
+
+// ==================== MODELS ====================
+
+model User {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email             String    @unique @db.VarChar(255)
+  passwordHash      String    @map("password_hash") @db.VarChar(255)
+  name              String    @db.VarChar(255)
+  phone             String?   @db.VarChar(20)
+  role              UserRole  @default(CASHIER)
+  isActive          Boolean   @default(true) @map("is_active")
+  emailVerified     DateTime? @map("email_verified")
+  lastLoginAt       DateTime? @map("last_login_at")
+  failedLoginAttempts Int     @default(0) @map("failed_login_attempts")
+  lockedUntil       DateTime? @map("locked_until")
+  
+  // Profile
+  avatar            String?   @db.VarChar(500)
+  employeeId        String?   @unique @map("employee_id") @db.VarChar(50)
+  
+  // Metadata
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+  
+  // Relations
+  orders            Order[]   @relation("CashierOrders")
+  confirmedPayments Payment[] @relation("PaymentVerifier")
+  sessions          Session[]
+  auditLogs         AuditLog[]
+  cashDrawers       CashDrawer[]
+  
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  token        String   @unique @db.VarChar(500)
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  userAgent    String?  @map("user_agent") @db.Text
+  lastActivity DateTime @default(now()) @map("last_activity")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Category {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String    @db.VarChar(100)
+  slug        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  imageUrl    String?   @map("image_url") @db.VarChar(500)
+  color       String?   @db.VarChar(7) // Hex color for UI
+  icon        String?   @db.VarChar(50) // Icon name/class
+  sortOrder   Int       @default(0) @map("sort_order")
+  isActive    Boolean   @default(true) @map("is_active")
+  
+  // Metadata
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  
+  // Relations
+  products    Product[]
+  
+  @@index([slug])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([deletedAt])
+  @@map("categories")
+}
+
+model Product {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  categoryId       String    @map("category_id") @db.Uuid
+  sku              String    @unique @db.VarChar(100)
+  barcode          String?   @unique @db.VarChar(100)
+  name             String    @db.VarChar(255)
+  description      String?   @db.Text
+  
+  // Pricing
+  price            Decimal   @db.Decimal(12, 2)
+  costPrice        Decimal?  @map("cost_price") @db.Decimal(12, 2) // For profit calculation
+  compareAtPrice   Decimal?  @map("compare_at_price") @db.Decimal(12, 2) // Original price for discount display
+  
+  // Tax
+  taxable          Boolean   @default(true)
+  taxRate          Decimal?  @map("tax_rate") @db.Decimal(5, 2) // Percentage
+  
+  // Images
+  imageUrl         String?   @map("image_url") @db.VarChar(500)
+  images           Json?     @db.JsonB // Array of additional image URLs
+  
+  // Inventory
+  trackInventory   Boolean   @default(false) @map("track_inventory")
+  quantity         Int       @default(0)
+  lowStockAlert    Int?      @map("low_stock_alert")
+  
+  // Status
+  isAvailable      Boolean   @default(true) @map("is_available")
+  isFeatured       Boolean   @default(false) @map("is_featured")
+  
+  // SEO
+  metaTitle        String?   @map("meta_title") @db.VarChar(255)
+  metaDescription  String?   @map("meta_description") @db.Text
+  
+  // Additional data
+  tags             String[]  @default([])
+  variants         Json?     @db.JsonB // For product variants (size, color, etc)
+  customFields     Json?     @map("custom_fields") @db.JsonB
+  
+  // Metadata
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+  
+  // Relations
+  category         Category  @relation(fields: [categoryId], references: [id])
+  orderItems       OrderItem[]
+  inventoryLogs    InventoryLog[]
+  
+  @@index([categoryId])
+  @@index([sku])
+  @@index([barcode])
+  @@index([name])
+  @@index([isAvailable])
+  @@index([isFeatured])
+  @@index([price])
+  @@index([deletedAt])
+  @@map("products")
+}
+
+model Order {
+  id                  String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderNumber         String       @unique @map("order_number") @db.VarChar(50)
+  invoiceNumber       String?      @unique @map("invoice_number") @db.VarChar(50)
+  
+  // Customer Info
+  customerName        String?      @map("customer_name") @db.VarChar(255)
+  customerPhone       String?      @map("customer_phone") @db.VarChar(20)
+  customerEmail       String?      @map("customer_email") @db.VarChar(255)
+  customerAddress     String?      @map("customer_address") @db.Text
+  
+  // Order Info
+  tableNumber         String?      @map("table_number") @db.VarChar(20)
+  orderType           OrderType    @map("order_type")
+  orderSource         OrderSource  @map("order_source")
+  status              OrderStatus  @default(PENDING_PAYMENT)
+  
+  // Amounts (all in smallest currency unit to avoid floating point issues)
+  subtotal            Decimal      @db.Decimal(12, 2)
+  discountAmount      Decimal      @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  discountType        DiscountType? @map("discount_type")
+  discountPercentage  Decimal?     @map("discount_percentage") @db.Decimal(5, 2)
+  taxAmount           Decimal      @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  taxRate             Decimal?     @map("tax_rate") @db.Decimal(5, 2)
+  taxType             TaxType      @default(INCLUSIVE) @map("tax_type")
+  serviceCharge       Decimal      @default(0) @map("service_charge") @db.Decimal(12, 2)
+  deliveryFee         Decimal      @default(0) @map("delivery_fee") @db.Decimal(12, 2)
+  totalAmount         Decimal      @map("total_amount") @db.Decimal(12, 2)
+  
+  // Payment Info
+  paymentMethod       PaymentMethod? @map("payment_method")
+  paidAmount          Decimal?     @map("paid_amount") @db.Decimal(12, 2)
+  changeAmount        Decimal?     @map("change_amount") @db.Decimal(12, 2)
+  
+  // Notes
+  notes               String?      @db.Text
+  internalNotes       String?      @map("internal_notes") @db.Text
+  cancellationReason  String?      @map("cancellation_reason") @db.Text
+  
+  // Timestamps
+  paidAt              DateTime?    @map("paid_at")
+  preparingAt         DateTime?    @map("preparing_at")
+  readyAt             DateTime?    @map("ready_at")
+  completedAt         DateTime?    @map("completed_at")
+  cancelledAt         DateTime?    @map("cancelled_at")
+  estimatedReadyTime  DateTime?    @map("estimated_ready_time")
+  
+  // Relations
+  cashierId           String?      @map("cashier_id") @db.Uuid
+  cashier             User?        @relation("CashierOrders", fields: [cashierId], references: [id])
+  
+  // Metadata
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+  deletedAt           DateTime?    @map("deleted_at")
+  
+  // Relations
+  items               OrderItem[]
+  payments            Payment[]
+  
+  @@index([orderNumber])
+  @@index([invoiceNumber])
+  @@index([status])
+  @@index([orderType])
+  @@index([orderSource])
+  @@index([customerPhone])
+  @@index([cashierId])
+  @@index([createdAt])
+  @@index([paidAt])
+  @@index([deletedAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderId         String   @map("order_id") @db.Uuid
+  productId       String   @map("product_id") @db.Uuid
+  
+  // Denormalized product data for historical accuracy
+  productName     String   @map("product_name") @db.VarChar(255)
+  productSku      String   @map("product_sku") @db.VarChar(100)
+  
+  // Quantities & Prices
+  quantity        Int
+  unitPrice       Decimal  @map("unit_price") @db.Decimal(12, 2)
+  costPrice       Decimal? @map("cost_price") @db.Decimal(12, 2) // For profit calculation
+  
+  // Discounts
+  discountAmount  Decimal  @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  discountPercent Decimal? @map("discount_percent") @db.Decimal(5, 2)
+  
+  // Totals
+  subtotal        Decimal  @db.Decimal(12, 2)
+  taxAmount       Decimal  @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  totalAmount     Decimal  @map("total_amount") @db.Decimal(12, 2)
+  
+  // Additional Info
+  notes           String?  @db.Text
+  variants        Json?    @db.JsonB // Selected variants (size, color, etc)
+  customFields    Json?    @map("custom_fields") @db.JsonB
+  
+  // Metadata
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id])
+  
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Payment {
+  id                    String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderId               String          @map("order_id") @db.Uuid
+  
+  // Payment Info
+  paymentMethod         PaymentMethod   @map("payment_method")
+  amount                Decimal         @db.Decimal(12, 2)
+  status                PaymentStatus   @default(PENDING)
+  transactionType       TransactionType @default(PAYMENT) @map("transaction_type")
+  
+  // Gateway Info (Midtrans)
+  gatewayName           String?         @map("gateway_name") @db.VarChar(50)
+  gatewayTransactionId  String?         @unique @map("gateway_transaction_id") @db.VarChar(255)
+  gatewayStatus         String?         @map("gateway_status") @db.VarChar(50)
+  gatewayResponse       Json?           @map("gateway_response") @db.JsonB
+  gatewayCallbackData   Json?           @map("gateway_callback_data") @db.JsonB
+  
+  // Payment Details
+  referenceNumber       String?         @unique @map("reference_number") @db.VarChar(100)
+  paymentProofUrl       String?         @map("payment_proof_url") @db.VarChar(500)
+  qrCodeUrl             String?         @map("qr_code_url") @db.VarChar(500)
+  vaNumber              String?         @map("va_number") @db.VarChar(50) // Virtual Account
+  
+  // Card Info (if applicable)
+  cardType              String?         @map("card_type") @db.VarChar(20)
+  cardLastFour          String?         @map("card_last_four") @db.VarChar(4)
+  
+  // Verification
+  verifiedBy            String?         @map("verified_by") @db.Uuid
+  verifiedAt            DateTime?       @map("verified_at")
+  verificationNotes     String?         @map("verification_notes") @db.Text
+  
+  // Timestamps
+  paidAt                DateTime?       @map("paid_at")
+  failedAt              DateTime?       @map("failed_at")
+  expiredAt             DateTime?       @map("expired_at")
+  refundedAt            DateTime?       @map("refunded_at")
+  
+  // Metadata
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+  
+  // Relations
+  order                 Order           @relation(fields: [orderId], references: [id])
+  verifier              User?           @relation("PaymentVerifier", fields: [verifiedBy], references: [id])
+  
+  @@index([orderId])
+  @@index([status])
+  @@index([paymentMethod])
+  @@index([gatewayTransactionId])
+  @@index([referenceNumber])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+model InventoryLog {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  productId       String   @map("product_id") @db.Uuid
+  type            String   @db.VarChar(50) // IN, OUT, ADJUSTMENT, DAMAGE, RETURN
+  quantity        Int
+  previousStock   Int      @map("previous_stock")
+  currentStock    Int      @map("current_stock")
+  reason          String?  @db.Text
+  referenceType   String?  @map("reference_type") @db.VarChar(50) // ORDER, MANUAL, RETURN
+  referenceId     String?  @map("reference_id") @db.Uuid
+  userId          String?  @map("user_id") @db.Uuid
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  product         Product  @relation(fields: [productId], references: [id])
+  
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("inventory_logs")
+}
+
+model CashDrawer {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  
+  // Amounts
+  openingBalance  Decimal   @map("opening_balance") @db.Decimal(12, 2)
+  closingBalance  Decimal?  @map("closing_balance") @db.Decimal(12, 2)
+  expectedBalance Decimal?  @map("expected_balance") @db.Decimal(12, 2)
+  difference      Decimal?  @db.Decimal(12, 2)
+  
+  // Cash breakdown
+  cashBreakdown   Json?     @map("cash_breakdown") @db.JsonB // Denomination counts
+  
+  // Status
+  status          String    @default("OPEN") @db.VarChar(20) // OPEN, CLOSED
+  notes           String?   @db.Text
+  
+  // Timestamps
+  openedAt        DateTime  @default(now()) @map("opened_at")
+  closedAt        DateTime? @map("closed_at")
+  
+  user            User      @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([status])
+  @@index([openedAt])
+  @@map("cash_drawers")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  action      String   @db.VarChar(100) // LOGIN, LOGOUT, CREATE_ORDER, UPDATE_PRODUCT, etc
+  entityType  String?  @map("entity_type") @db.VarChar(50) // ORDER, PRODUCT, USER, etc
+  entityId    String?  @map("entity_id") @db.Uuid
+  oldValue    Json?    @map("old_value") @db.JsonB
+  newValue    Json?    @map("new_value") @db.JsonB
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  userAgent   String?  @map("user_agent") @db.Text
+  metadata    Json?    @db.JsonB
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  key         String   @unique @db.VarChar(100)
+  value       Json     @db.JsonB
+  description String?  @db.Text
+  groupName   String?  @map("group_name") @db.VarChar(50)
+  isPublic    Boolean  @default(false) @map("is_public") // Can be exposed to frontend
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@index([key])
+  @@index([groupName])
+  @@map("system_settings")
+}
+
+// ==================== VIEWS (Optional for Reports) ====================
+// Note: Create these as actual PostgreSQL views using migrations
+
+// Example view for daily sales (create via migration):
+// CREATE VIEW daily_sales_summary AS
+// SELECT 
+//   DATE(created_at) as date,
+//   COUNT(*) as total_orders,
+//   SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completed_orders,
+//   SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) as cancelled_orders,
+//   SUM(total_amount) as total_revenue,
+//   AVG(total_amount) as average_order_value
+// FROM orders
+// WHERE deleted_at IS NULL
+// GROUP BY DATE(created_at);

@@ -85,8 +85,8 @@ export function AdminSidebar() {
               <ShoppingCart className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-900">POS System</h1>
-              <p className="text-xs text-slate-500">Admin Panel</p>
+              <h1 className="text-lg font-bold text-slate-900">OSLO</h1>
+              <p className="text-xs text-slate-500">POS System</p>
             </div>
           </div>
 
@@ -132,6 +132,9 @@ export function AdminSidebar() {
           <div className="border-t border-slate-200 p-4">
             <div className="text-xs text-slate-500 text-center">
               Version 1.0.0
+            </div>
+            <div className="text-xs text-slate-500 text-center">
+              Copyright © 2025 PT SCUDERIA HIVE DIGITAL. All rights reserved.
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SessionRefresh } from "@/components/session";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 import { getSession } from "@/lib/auth-utils";
 import "./globals.css";
 
@@ -33,11 +34,13 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider session={session}>
-          <SessionRefresh />
-          {children}
-          <Toaster position="top-right" richColors closeButton />
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider session={session}>
+            <SessionRefresh />
+            {children}
+            <Toaster position="top-right" richColors closeButton />
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

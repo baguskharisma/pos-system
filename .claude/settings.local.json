@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir -p \"C:/Users/DESKTOP/BAGUS/projects/nextjs/pos-system/src/app/api/auth/[...nextauth]\")"
+      "Bash(mkdir -p \"C:/Users/DESKTOP/BAGUS/projects/nextjs/pos-system/src/app/api/auth/[...nextauth]\")",
+      "Bash(npm run lint)"
     ],
     "deny": [],
     "ask": []

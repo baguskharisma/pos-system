@@ -11,10 +11,12 @@ import { OrderSummary } from "@/components/pos/OrderSummary";
 import { CustomerInfoForm } from "@/components/pos/CustomerInfoForm";
 import { OrderTypeSelector } from "@/components/pos/OrderTypeSelector";
 import { HeldOrdersModal } from "@/components/pos/HeldOrdersModal";
+import { PaymentModal } from "@/components/pos/PaymentModal";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
+import { formatCurrency } from "@/lib/product-utils";
 import { toast } from "sonner";
-import type { POSProduct, POSCartItem, POSCart, POSCategory, HeldOrder, OrderType, CustomerInfo } from "@/types/pos";
+import type { POSProduct, POSCartItem, POSCart, POSCategory, HeldOrder, OrderType, CustomerInfo, PaymentInfo, CompletedOrder } from "@/types/pos";
 
 export default function POSPage() {
   // State
@@ -35,12 +37,15 @@ export default function POSPage() {
   });
   const [showCartModal, setShowCartModal] = useState(false);
   const [showHeldOrdersModal, setShowHeldOrdersModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
+  const [completedOrders, setCompletedOrders] = useState<CompletedOrder[]>([]);
   const [orderNumberCounter, setOrderNumberCounter] = useState(1);
 
-  // Load held orders from localStorage on mount
+  // Load held orders and completed orders from localStorage on mount
   useEffect(() => {
     const savedHeldOrders = localStorage.getItem("heldOrders");
+    const savedCompletedOrders = localStorage.getItem("completedOrders");
     const savedOrderCounter = localStorage.getItem("orderNumberCounter");
 
     if (savedHeldOrders) {
@@ -48,6 +53,14 @@ export default function POSPage() {
         setHeldOrders(JSON.parse(savedHeldOrders));
       } catch (error) {
         console.error("Error loading held orders:", error);
+      }
+    }
+
+    if (savedCompletedOrders) {
+      try {
+        setCompletedOrders(JSON.parse(savedCompletedOrders));
+      } catch (error) {
+        console.error("Error loading completed orders:", error);
       }
     }
 
@@ -62,6 +75,13 @@ export default function POSPage() {
       localStorage.setItem("heldOrders", JSON.stringify(heldOrders));
     }
   }, [heldOrders]);
+
+  // Save completed orders to localStorage whenever they change
+  useEffect(() => {
+    if (completedOrders.length >= 0) {
+      localStorage.setItem("completedOrders", JSON.stringify(completedOrders));
+    }
+  }, [completedOrders]);
 
   // Save order counter to localStorage whenever it changes
   useEffect(() => {
@@ -312,9 +332,49 @@ export default function POSPage() {
   };
 
   const handleCheckout = () => {
-    // TODO: Implement checkout flow
-    toast.success("Proceeding to payment...", {
-      description: `Total: Rp ${cart.total.toLocaleString()}`,
+    // Validation
+    if (cart.items.length === 0) {
+      toast.error("Cannot checkout with empty cart");
+      return;
+    }
+
+    // Validate customer info for delivery orders
+    if (cart.orderType === "DELIVERY") {
+      if (!cart.customerInfo.name || !cart.customerInfo.phone || !cart.customerInfo.address) {
+        toast.error("Customer information required for delivery", {
+          description: "Please fill in name, phone, and address",
+        });
+        return;
+      }
+    }
+
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentComplete = (payment: PaymentInfo) => {
+    // Create completed order
+    const completedOrder: CompletedOrder = {
+      id: `order-${Date.now()}`,
+      orderNumber: orderNumberCounter,
+      cart: { ...cart },
+      payment,
+      completedAt: new Date().toISOString(),
+    };
+
+    // Save to completed orders
+    setCompletedOrders((prev) => [completedOrder, ...prev]);
+
+    // Increment order counter
+    setOrderNumberCounter((prev) => prev + 1);
+
+    // Clear cart
+    clearCart();
+
+    // Close modals
+    setShowPaymentModal(false);
+
+    toast.success(`Order #${orderNumberCounter} completed successfully!`, {
+      description: `Payment: ${payment.method} - ${formatCurrency(cart.total + payment.tipAmount)}`,
     });
   };
 
@@ -547,6 +607,15 @@ export default function POSPage() {
         heldOrders={heldOrders}
         onRecallOrder={handleRecallOrder}
         onDeleteHeldOrder={handleDeleteHeldOrder}
+      />
+
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        cart={cart}
+        orderNumber={orderNumberCounter}
+        onPaymentComplete={handlePaymentComplete}
       />
     </div>
   );

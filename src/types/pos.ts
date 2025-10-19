@@ -44,6 +44,24 @@ export interface HeldOrder {
   orderNumber: number;
 }
 
+export type PaymentMethod = "CASH" | "CARD" | "E_WALLET" | "BANK_TRANSFER";
+
+export interface PaymentInfo {
+  method: PaymentMethod;
+  amountTendered: number;
+  tipAmount: number;
+  change: number;
+}
+
+export interface CompletedOrder {
+  id: string;
+  orderNumber: number;
+  cart: POSCart;
+  payment: PaymentInfo;
+  completedAt: string;
+  cashierName?: string;
+}
+
 export interface POSProduct {
   id: string;
   name: string;

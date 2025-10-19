@@ -1,9 +1,11 @@
 "use client";
 
-import { Minus, Plus, Trash2, ShoppingCart, X } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingCart, X, MessageSquare } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency } from "@/lib/product-utils";
 import type { POSCartItem } from "@/types/pos";
 
@@ -11,6 +13,7 @@ interface CurrentOrderProps {
   items: POSCartItem[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
+  onUpdateNotes: (productId: string, notes: string) => void;
   onClearCart: () => void;
   className?: string;
 }
@@ -19,6 +22,7 @@ export function CurrentOrder({
   items,
   onUpdateQuantity,
   onRemoveItem,
+  onUpdateNotes,
   onClearCart,
   className = "",
 }: CurrentOrderProps) {
@@ -70,6 +74,7 @@ export function CurrentOrder({
             item={item}
             onUpdateQuantity={onUpdateQuantity}
             onRemove={onRemoveItem}
+            onUpdateNotes={onUpdateNotes}
           />
         ))}
       </div>
@@ -81,9 +86,11 @@ interface CartItemCardProps {
   item: POSCartItem;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemove: (productId: string) => void;
+  onUpdateNotes: (productId: string, notes: string) => void;
 }
 
-function CartItemCard({ item, onUpdateQuantity, onRemove }: CartItemCardProps) {
+function CartItemCard({ item, onUpdateQuantity, onRemove, onUpdateNotes }: CartItemCardProps) {
+  const [showNotes, setShowNotes] = useState(false);
   const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity <= 0) {
       onRemove(item.productId);
@@ -185,9 +192,33 @@ function CartItemCard({ item, onUpdateQuantity, onRemove }: CartItemCardProps) {
             </p>
           )}
 
-          {/* Notes */}
-          {item.notes && (
-            <p className="text-xs text-slate-600 mt-2 italic">
+          {/* Add Notes Button */}
+          <div className="mt-2">
+            <button
+              onClick={() => setShowNotes(!showNotes)}
+              className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            >
+              <MessageSquare className="h-3 w-3" />
+              {item.notes || showNotes ? "Edit Note" : "Add Note"}
+            </button>
+          </div>
+
+          {/* Notes Input */}
+          {showNotes && (
+            <div className="mt-2">
+              <Textarea
+                value={item.notes || ""}
+                onChange={(e) => onUpdateNotes(item.productId, e.target.value)}
+                placeholder="Add special instructions..."
+                className="text-xs min-h-[60px] resize-none"
+                rows={2}
+              />
+            </div>
+          )}
+
+          {/* Display Notes */}
+          {!showNotes && item.notes && (
+            <p className="text-xs text-slate-600 mt-2 italic bg-slate-50 p-2 rounded">
               Note: {item.notes}
             </p>
           )}

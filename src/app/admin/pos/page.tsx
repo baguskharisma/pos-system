@@ -1,17 +1,20 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ShoppingCart, X } from "lucide-react";
+import { ShoppingCart, X, Clock, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuickCategoryButtons } from "@/components/pos/QuickCategoryButtons";
 import { POSSearchBar } from "@/components/pos/POSSearchBar";
 import { POSProductGrid } from "@/components/pos/POSProductGrid";
 import { CurrentOrder } from "@/components/pos/CurrentOrder";
 import { OrderSummary } from "@/components/pos/OrderSummary";
+import { CustomerInfoForm } from "@/components/pos/CustomerInfoForm";
+import { OrderTypeSelector } from "@/components/pos/OrderTypeSelector";
+import { HeldOrdersModal } from "@/components/pos/HeldOrdersModal";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { toast } from "sonner";
-import type { POSProduct, POSCartItem, POSCart, POSCategory } from "@/types/pos";
+import type { POSProduct, POSCartItem, POSCart, POSCategory, HeldOrder, OrderType, CustomerInfo } from "@/types/pos";
 
 export default function POSPage() {
   // State
@@ -22,12 +25,48 @@ export default function POSPage() {
     subtotal: 0,
     taxRate: 0.11, // 11% tax
     taxAmount: 0,
+    taxEnabled: true,
     discountAmount: 0,
     discountType: "PERCENTAGE",
     discountPercentage: 0,
     total: 0,
+    orderType: "DINE_IN",
+    customerInfo: {},
   });
   const [showCartModal, setShowCartModal] = useState(false);
+  const [showHeldOrdersModal, setShowHeldOrdersModal] = useState(false);
+  const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
+  const [orderNumberCounter, setOrderNumberCounter] = useState(1);
+
+  // Load held orders from localStorage on mount
+  useEffect(() => {
+    const savedHeldOrders = localStorage.getItem("heldOrders");
+    const savedOrderCounter = localStorage.getItem("orderNumberCounter");
+
+    if (savedHeldOrders) {
+      try {
+        setHeldOrders(JSON.parse(savedHeldOrders));
+      } catch (error) {
+        console.error("Error loading held orders:", error);
+      }
+    }
+
+    if (savedOrderCounter) {
+      setOrderNumberCounter(parseInt(savedOrderCounter, 10));
+    }
+  }, []);
+
+  // Save held orders to localStorage whenever they change
+  useEffect(() => {
+    if (heldOrders.length >= 0) {
+      localStorage.setItem("heldOrders", JSON.stringify(heldOrders));
+    }
+  }, [heldOrders]);
+
+  // Save order counter to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("orderNumberCounter", orderNumberCounter.toString());
+  }, [orderNumberCounter]);
 
   // Fetch data
   const { data: productsData, isLoading: isLoadingProducts } = useProducts({
@@ -88,7 +127,7 @@ export default function POSPage() {
     }
 
     const afterDiscount = subtotal - discountAmount;
-    const taxAmount = afterDiscount * cart.taxRate;
+    const taxAmount = cart.taxEnabled ? afterDiscount * cart.taxRate : 0;
     const total = afterDiscount + taxAmount;
 
     setCart((prev) => ({
@@ -98,7 +137,7 @@ export default function POSPage() {
       taxAmount,
       total,
     }));
-  }, [cart.items, cart.discountType, cart.discountPercentage, cart.discountAmount, cart.taxRate]);
+  }, [cart.items, cart.discountType, cart.discountPercentage, cart.discountAmount, cart.taxRate, cart.taxEnabled]);
 
   // Cart actions
   const addToCart = (product: POSProduct) => {
@@ -173,13 +212,29 @@ export default function POSPage() {
     toast.success("Item removed from cart");
   };
 
-  const clearCart = () => {
+  const updateNotes = (productId: string, notes: string) => {
     setCart((prev) => ({
       ...prev,
-      items: [],
-      discountAmount: 0,
-      discountPercentage: 0,
+      items: prev.items.map((item) =>
+        item.productId === productId ? { ...item, notes } : item
+      ),
     }));
+  };
+
+  const clearCart = () => {
+    setCart({
+      items: [],
+      subtotal: 0,
+      taxRate: 0.11,
+      taxAmount: 0,
+      taxEnabled: true,
+      discountAmount: 0,
+      discountType: "PERCENTAGE",
+      discountPercentage: 0,
+      total: 0,
+      orderType: "DINE_IN",
+      customerInfo: {},
+    });
     toast.success("Cart cleared");
   };
 
@@ -193,6 +248,67 @@ export default function POSPage() {
       discountPercentage: type === "PERCENTAGE" ? amount : 0,
       discountAmount: type === "FIXED_AMOUNT" ? amount : 0,
     }));
+  };
+
+  const handleToggleTax = (enabled: boolean) => {
+    setCart((prev) => ({
+      ...prev,
+      taxEnabled: enabled,
+    }));
+  };
+
+  const handleOrderTypeChange = (orderType: OrderType) => {
+    setCart((prev) => ({
+      ...prev,
+      orderType,
+      customerInfo: {}, // Reset customer info when changing order type
+    }));
+  };
+
+  const handleCustomerInfoChange = (customerInfo: CustomerInfo) => {
+    setCart((prev) => ({
+      ...prev,
+      customerInfo,
+    }));
+  };
+
+  const handleHoldOrder = () => {
+    if (cart.items.length === 0) {
+      toast.error("Cannot hold empty order");
+      return;
+    }
+
+    const newHeldOrder: HeldOrder = {
+      id: `held-${Date.now()}`,
+      cart: { ...cart },
+      heldAt: new Date().toISOString(),
+      orderNumber: orderNumberCounter,
+    };
+
+    setHeldOrders((prev) => [newHeldOrder, ...prev]);
+    setOrderNumberCounter((prev) => prev + 1);
+    clearCart();
+    toast.success(`Order #${orderNumberCounter} held successfully`);
+  };
+
+  const handleRecallOrder = (order: HeldOrder) => {
+    if (cart.items.length > 0) {
+      // Ask user if they want to replace current cart
+      const shouldReplace = window.confirm(
+        "Current cart has items. Do you want to replace it with the held order?"
+      );
+      if (!shouldReplace) return;
+    }
+
+    setCart(order.cart);
+    setHeldOrders((prev) => prev.filter((o) => o.id !== order.id));
+    toast.success(`Order #${order.orderNumber} recalled`);
+  };
+
+  const handleDeleteHeldOrder = (orderId: string) => {
+    const order = heldOrders.find((o) => o.id === orderId);
+    setHeldOrders((prev) => prev.filter((o) => o.id !== orderId));
+    toast.success(`Order #${order?.orderNumber} deleted`);
   };
 
   const handleCheckout = () => {
@@ -222,19 +338,34 @@ export default function POSPage() {
       <div className="lg:hidden sticky top-0 z-40 bg-white border-b border-slate-200 p-4">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-bold text-slate-900">POS</h1>
-          <Button
-            variant="default"
-            className="gap-2 relative"
-            onClick={() => setShowCartModal(true)}
-          >
-            <ShoppingCart className="h-5 w-5" />
-            Cart
-            {cart.items.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                {cart.items.length}
-              </span>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 relative"
+              onClick={() => setShowHeldOrdersModal(true)}
+            >
+              <Clock className="h-4 w-4" />
+              {heldOrders.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {heldOrders.length}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant="default"
+              className="gap-2 relative"
+              onClick={() => setShowCartModal(true)}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              Cart
+              {cart.items.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                  {cart.items.length}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -278,19 +409,60 @@ export default function POSPage() {
         {/* Cart Section - Desktop */}
         <div className="hidden lg:block lg:col-span-1">
           <div className="sticky top-6 space-y-4">
-            <div className="bg-white rounded-lg border border-slate-200 p-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+            {/* Order Type and Customer Info */}
+            <div className="bg-white rounded-lg border border-slate-200 p-4">
+              <OrderTypeSelector
+                selected={cart.orderType}
+                onChange={handleOrderTypeChange}
+              />
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <CustomerInfoForm
+                  customerInfo={cart.customerInfo}
+                  orderType={cart.orderType}
+                  onChange={handleCustomerInfoChange}
+                />
+              </div>
+            </div>
+
+            {/* Current Order */}
+            <div className="bg-white rounded-lg border border-slate-200 p-4 max-h-[calc(100vh-500px)] overflow-y-auto">
               <CurrentOrder
                 items={cart.items}
                 onUpdateQuantity={updateQuantity}
                 onRemoveItem={removeItem}
+                onUpdateNotes={updateNotes}
                 onClearCart={clearCart}
               />
             </div>
+
+            {/* Order Summary and Actions */}
             <OrderSummary
               cart={cart}
               onUpdateDiscount={handleDiscount}
+              onToggleTax={handleToggleTax}
               onCheckout={handleCheckout}
             />
+
+            {/* Hold Order Button */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 gap-2"
+                onClick={handleHoldOrder}
+                disabled={cart.items.length === 0}
+              >
+                <Save className="h-4 w-4" />
+                Hold Order
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2 relative"
+                onClick={() => setShowHeldOrdersModal(true)}
+              >
+                <Clock className="h-4 w-4" />
+                Held ({heldOrders.length})
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -310,20 +482,53 @@ export default function POSPage() {
               </div>
 
               {/* Modal Content */}
-              <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Order Type and Customer Info */}
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <OrderTypeSelector
+                    selected={cart.orderType}
+                    onChange={handleOrderTypeChange}
+                  />
+                  <div className="mt-3 pt-3 border-t border-slate-200">
+                    <CustomerInfoForm
+                      customerInfo={cart.customerInfo}
+                      orderType={cart.orderType}
+                      onChange={handleCustomerInfoChange}
+                    />
+                  </div>
+                </div>
+
+                {/* Current Order Items */}
                 <CurrentOrder
                   items={cart.items}
                   onUpdateQuantity={updateQuantity}
                   onRemoveItem={removeItem}
+                  onUpdateNotes={updateNotes}
                   onClearCart={clearCart}
                 />
               </div>
 
               {/* Modal Footer */}
-              <div className="p-4 border-t border-slate-200 bg-white">
+              <div className="p-4 border-t border-slate-200 bg-white space-y-3">
+                {/* Hold Order Button */}
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => {
+                    handleHoldOrder();
+                    setShowCartModal(false);
+                  }}
+                  disabled={cart.items.length === 0}
+                >
+                  <Save className="h-4 w-4" />
+                  Hold Order
+                </Button>
+
+                {/* Order Summary */}
                 <OrderSummary
                   cart={cart}
                   onUpdateDiscount={handleDiscount}
+                  onToggleTax={handleToggleTax}
                   onCheckout={() => {
                     setShowCartModal(false);
                     handleCheckout();
@@ -334,6 +539,15 @@ export default function POSPage() {
           </div>
         )}
       </div>
+
+      {/* Held Orders Modal */}
+      <HeldOrdersModal
+        isOpen={showHeldOrdersModal}
+        onClose={() => setShowHeldOrdersModal(false)}
+        heldOrders={heldOrders}
+        onRecallOrder={handleRecallOrder}
+        onDeleteHeldOrder={handleDeleteHeldOrder}
+      />
     </div>
   );
 }

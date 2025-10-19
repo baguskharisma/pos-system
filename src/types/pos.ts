@@ -14,15 +14,34 @@ export interface POSCartItem {
   notes?: string;
 }
 
+export type OrderType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
+
+export interface CustomerInfo {
+  name?: string;
+  phone?: string;
+  address?: string;
+  tableNumber?: string;
+}
+
 export interface POSCart {
   items: POSCartItem[];
   subtotal: number;
   taxRate: number;
   taxAmount: number;
+  taxEnabled: boolean;
   discountAmount: number;
   discountType?: "PERCENTAGE" | "FIXED_AMOUNT";
   discountPercentage?: number;
   total: number;
+  orderType: OrderType;
+  customerInfo: CustomerInfo;
+}
+
+export interface HeldOrder {
+  id: string;
+  cart: POSCart;
+  heldAt: string;
+  orderNumber: number;
 }
 
 export interface POSProduct {

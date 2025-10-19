@@ -15,7 +15,8 @@ import {
   UserCog,
   X,
   Menu,
-  ChevronRight
+  ChevronRight,
+  Calculator
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -30,6 +31,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { name: "POS", href: "/admin/pos", icon: Calculator },
   { name: "Sales", href: "/admin/sales", icon: ShoppingCart },
   { name: "Products", href: "/admin/products", icon: Package },
   { name: "Categories", href: "/admin/categories", icon: Tag },

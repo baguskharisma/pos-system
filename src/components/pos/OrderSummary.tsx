@@ -4,6 +4,7 @@ import { CreditCard, Percent, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -17,6 +18,7 @@ import type { POSCart } from "@/types/pos";
 interface OrderSummaryProps {
   cart: POSCart;
   onUpdateDiscount: (amount: number, type: "PERCENTAGE" | "FIXED_AMOUNT") => void;
+  onToggleTax: (enabled: boolean) => void;
   onCheckout: () => void;
   isProcessing?: boolean;
   className?: string;
@@ -25,6 +27,7 @@ interface OrderSummaryProps {
 export function OrderSummary({
   cart,
   onUpdateDiscount,
+  onToggleTax,
   onCheckout,
   isProcessing = false,
   className = "",
@@ -116,13 +119,23 @@ export function OrderSummary({
           )}
         </div>
 
-        {/* Tax */}
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-600">
-            Tax ({(cart.taxRate * 100).toFixed(0)}%)
-          </span>
+        {/* Tax Toggle */}
+        <div className="flex items-center justify-between py-2 border-t border-slate-200">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={cart.taxEnabled}
+              onCheckedChange={onToggleTax}
+              id="tax-toggle"
+            />
+            <Label
+              htmlFor="tax-toggle"
+              className="text-sm text-slate-600 cursor-pointer"
+            >
+              Tax ({(cart.taxRate * 100).toFixed(0)}%)
+            </Label>
+          </div>
           <span className="font-medium text-slate-900">
-            {formatCurrency(cart.taxAmount)}
+            {cart.taxEnabled ? formatCurrency(cart.taxAmount) : formatCurrency(0)}
           </span>
         </div>
 

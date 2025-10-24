@@ -436,7 +436,7 @@ export default function POSPage() {
           {/* Desktop Header */}
           <div className="hidden lg:block">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
-              Point of Sale
+              Kasir
             </h1>
             <p className="text-slate-600">
               Select products to add to the current order

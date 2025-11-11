@@ -25,10 +25,14 @@ export const createCategorySchema = z.object({
     .nullable(),
   imageUrl: z
     .string()
-    .url("Image URL must be a valid URL")
     .max(500, "Image URL must be at most 500 characters")
     .optional()
-    .nullable(),
+    .nullable()
+    .transform((val) => (val === "" ? null : val))
+    .refine(
+      (val) => !val || /^https?:\/\/.+/.test(val),
+      "Image URL must be a valid URL"
+    ),
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color (e.g., #FF5733)")
@@ -76,10 +80,14 @@ export const updateCategorySchema = z.object({
     .nullable(),
   imageUrl: z
     .string()
-    .url("Image URL must be a valid URL")
     .max(500, "Image URL must be at most 500 characters")
     .optional()
-    .nullable(),
+    .nullable()
+    .transform((val) => (val === "" ? null : val))
+    .refine(
+      (val) => !val || /^https?:\/\/.+/.test(val),
+      "Image URL must be a valid URL"
+    ),
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color (e.g., #FF5733)")

@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { SessionRefresh } from "@/components/session";
 import { QueryProvider } from "@/components/providers/QueryProvider";
-import { getSession } from "@/lib/auth-utils";
+import { WebSocketProvider } from "@/components/providers/WebSocketProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,28 +16,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "POS System",
-  description: "Point of Sale System",
+  title: "RAVORA Coffee - POS System",
+  description: "RAVORA Coffee - Point of Sale System",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getSession();
-
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <QueryProvider>
-          <AuthProvider session={session}>
-            <SessionRefresh />
+          <WebSocketProvider>
             {children}
             <Toaster position="top-right" richColors closeButton />
-          </AuthProvider>
+          </WebSocketProvider>
         </QueryProvider>
       </body>
     </html>

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth-utils";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { AdminLayoutClient } from "@/components/admin/AdminLayoutClient";
 
 export default async function AdminLayout({
   children,
@@ -29,7 +30,9 @@ export default async function AdminLayout({
       <div className="lg:pl-64">
         <AdminHeader user={session.user} />
         <main className="p-6">
-          {children}
+          <AdminLayoutClient userRole={session.user.role as "ADMIN" | "SUPER_ADMIN" | "CASHIER"}>
+            {children}
+          </AdminLayoutClient>
         </main>
       </div>
     </div>

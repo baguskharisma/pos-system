@@ -80,12 +80,11 @@ export function OrderSummary({
               <SelectContent>
                 <SelectItem value="PERCENTAGE">
                   <div className="flex items-center gap-1">
-                    <Percent className="h-3 w-3" />%
+                    %
                   </div>
                 </SelectItem>
                 <SelectItem value="FIXED_AMOUNT">
                   <div className="flex items-center gap-1">
-                    <DollarSign className="h-3 w-3" />
                     IDR
                   </div>
                 </SelectItem>

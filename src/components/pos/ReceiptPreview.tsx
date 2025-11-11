@@ -28,12 +28,8 @@ export function ReceiptPreview({
     switch (method) {
       case "CASH":
         return "Cash";
-      case "CARD":
-        return "Card";
-      case "E_WALLET":
-        return "E-Wallet";
-      case "BANK_TRANSFER":
-        return "Bank Transfer";
+      case "DIGITAL_PAYMENT":
+        return "Digital Payment";
       default:
         return method;
     }

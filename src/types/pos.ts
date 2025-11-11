@@ -41,10 +41,10 @@ export interface HeldOrder {
   id: string;
   cart: POSCart;
   heldAt: string;
-  orderNumber: number;
+  orderNumber: string;
 }
 
-export type PaymentMethod = "CASH" | "CARD" | "E_WALLET" | "BANK_TRANSFER";
+export type PaymentMethod = "CASH" | "DIGITAL_PAYMENT";
 
 export interface PaymentInfo {
   method: PaymentMethod;
@@ -55,7 +55,7 @@ export interface PaymentInfo {
 
 export interface CompletedOrder {
   id: string;
-  orderNumber: number;
+  orderNumber: string;
   cart: POSCart;
   payment: PaymentInfo;
   completedAt: string;

@@ -26,6 +26,11 @@ export enum Permission {
   PRODUCT_DELETE = "product:delete",
   PRODUCT_MANAGE_INVENTORY = "product:manage_inventory",
 
+  // Inventory Management
+  INVENTORY_READ = "inventory:read",
+  INVENTORY_UPDATE = "inventory:update",
+  INVENTORY_DELETE = "inventory:delete",
+
   // Category Management
   CATEGORY_VIEW = "category:view",
   CATEGORY_CREATE = "category:create",
@@ -103,6 +108,11 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     Permission.PRODUCT_DELETE,
     Permission.PRODUCT_MANAGE_INVENTORY,
 
+    // Inventory Management
+    Permission.INVENTORY_READ,
+    Permission.INVENTORY_UPDATE,
+    Permission.INVENTORY_DELETE,
+
     // Category Management
     Permission.CATEGORY_VIEW,
     Permission.CATEGORY_CREATE,
@@ -153,6 +163,9 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
     // Product (read only)
     Permission.PRODUCT_VIEW,
 
+    // Inventory (read only)
+    Permission.INVENTORY_READ,
+
     // Category (read only)
     Permission.CATEGORY_VIEW,
 
@@ -184,6 +197,9 @@ export const RolePermissions: Record<UserRole, Permission[]> = {
   STAFF: [
     // Product (read only)
     Permission.PRODUCT_VIEW,
+
+    // Inventory (read only)
+    Permission.INVENTORY_READ,
 
     // Category (read only)
     Permission.CATEGORY_VIEW,

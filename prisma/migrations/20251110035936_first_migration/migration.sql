@@ -17,7 +17,7 @@ CREATE TYPE "order_type" AS ENUM ('DINE_IN', 'TAKEAWAY', 'DELIVERY');
 CREATE TYPE "order_source" AS ENUM ('CUSTOMER', 'CASHIER', 'ONLINE', 'PHONE');
 
 -- CreateEnum
-CREATE TYPE "payment_method" AS ENUM ('CASH', 'BANK_TRANSFER', 'QRIS', 'CREDIT_CARD', 'DEBIT_CARD', 'E_WALLET', 'OTHER');
+CREATE TYPE "payment_method" AS ENUM ('CASH', 'DIGITAL_PAYMENT');
 
 -- CreateEnum
 CREATE TYPE "payment_status" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'EXPIRED', 'REFUNDED', 'PARTIALLY_REFUNDED');
@@ -141,6 +141,8 @@ CREATE TABLE "orders" (
     "delivery_fee" DECIMAL(12,2) NOT NULL DEFAULT 0,
     "total_amount" DECIMAL(12,2) NOT NULL,
     "payment_method" "payment_method",
+    "payment_status" "payment_status" NOT NULL DEFAULT 'PENDING',
+    "payment_token" VARCHAR(500),
     "paid_amount" DECIMAL(12,2),
     "change_amount" DECIMAL(12,2),
     "notes" TEXT,
@@ -393,10 +395,22 @@ CREATE INDEX "orders_paid_at_idx" ON "orders"("paid_at");
 CREATE INDEX "orders_deleted_at_idx" ON "orders"("deleted_at");
 
 -- CreateIndex
+CREATE INDEX "orders_status_deleted_at_created_at_idx" ON "orders"("status", "deleted_at", "created_at");
+
+-- CreateIndex
+CREATE INDEX "orders_cashier_id_status_created_at_idx" ON "orders"("cashier_id", "status", "created_at");
+
+-- CreateIndex
+CREATE INDEX "orders_created_at_status_deleted_at_idx" ON "orders"("created_at", "status", "deleted_at");
+
+-- CreateIndex
 CREATE INDEX "order_items_order_id_idx" ON "order_items"("order_id");
 
 -- CreateIndex
 CREATE INDEX "order_items_product_id_idx" ON "order_items"("product_id");
+
+-- CreateIndex
+CREATE INDEX "order_items_product_id_created_at_idx" ON "order_items"("product_id", "created_at");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "payments_gateway_transaction_id_key" ON "payments"("gateway_transaction_id");
@@ -421,6 +435,15 @@ CREATE INDEX "payments_reference_number_idx" ON "payments"("reference_number");
 
 -- CreateIndex
 CREATE INDEX "payments_created_at_idx" ON "payments"("created_at");
+
+-- CreateIndex
+CREATE INDEX "payments_status_created_at_transaction_type_idx" ON "payments"("status", "created_at", "transaction_type");
+
+-- CreateIndex
+CREATE INDEX "payments_payment_method_status_created_at_idx" ON "payments"("payment_method", "status", "created_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "payments_order_id_status_key" ON "payments"("order_id", "status");
 
 -- CreateIndex
 CREATE INDEX "inventory_logs_product_id_idx" ON "inventory_logs"("product_id");

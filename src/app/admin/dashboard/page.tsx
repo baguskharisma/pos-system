@@ -8,6 +8,8 @@ import {
   ArrowDownRight,
 } from "lucide-react";
 import { formatIDR } from "@/lib/currency";
+import { PendingOrdersAlert } from "@/components/admin/PendingOrdersBadge";
+import { PendingCashOrdersWidget } from "@/components/admin/PendingCashOrders";
 
 export const metadata: Metadata = {
   title: "Dashboard | POS System",
@@ -83,6 +85,9 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
+      {/* Pending Orders Alert */}
+      <PendingOrdersAlert />
+
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
@@ -119,37 +124,43 @@ export default function AdminDashboardPage() {
         })}
       </div>
 
-      {/* Recent Sales */}
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900">Penjualan Terbaru</h3>
-          <p className="text-sm text-slate-500 mt-1">
-            Anda telah melakukan 265 penjualan bulan ini.
-          </p>
-        </div>
-        <div className="p-6">
-          <div className="space-y-4">
-            {recentSales.map((sale) => (
-              <div
-                key={sale.email}
-                className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-                    <Users className="h-5 w-5 text-slate-600" />
+      {/* Pending Cash Orders & Recent Sales Grid */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Pending Cash Orders Widget */}
+        <PendingCashOrdersWidget />
+
+        {/* Recent Sales */}
+        <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 p-6">
+            <h3 className="text-lg font-semibold text-slate-900">Penjualan Terbaru</h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Anda telah melakukan 265 penjualan bulan ini.
+            </p>
+          </div>
+          <div className="p-6">
+            <div className="space-y-4">
+              {recentSales.map((sale) => (
+                <div
+                  key={sale.email}
+                  className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
+                      <Users className="h-5 w-5 text-slate-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        {sale.customer}
+                      </p>
+                      <p className="text-xs text-slate-500">{sale.email}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">
-                      {sale.customer}
-                    </p>
-                    <p className="text-xs text-slate-500">{sale.email}</p>
-                  </div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {sale.amount}
+                  </p>
                 </div>
-                <p className="text-sm font-semibold text-slate-900">
-                  {sale.amount}
-                </p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>

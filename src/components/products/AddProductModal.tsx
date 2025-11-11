@@ -2,7 +2,7 @@
 
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, X, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { createProductSchema } from "@/lib/validations/products";
 import { useCreateProduct } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
@@ -38,7 +39,6 @@ interface AddProductModalProps {
 export function AddProductModal({ open, onClose }: AddProductModalProps) {
   const createProduct = useCreateProduct();
   const { data: categoriesData } = useCategories({ limit: 100, isActive: true });
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const {
     register,
@@ -79,16 +79,10 @@ export function AddProductModal({ open, onClose }: AddProductModalProps) {
     }
   };
 
-  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const url = e.target.value;
-    setImagePreview(url || null);
-  };
-
   const onSubmit = async (data: CreateProductData) => {
     try {
       await createProduct.mutateAsync(data);
       reset();
-      setImagePreview(null);
       onClose();
     } catch {
       // Error is handled by the mutation
@@ -97,7 +91,6 @@ export function AddProductModal({ open, onClose }: AddProductModalProps) {
 
   const handleClose = () => {
     reset();
-    setImagePreview(null);
     onClose();
   };
 
@@ -349,45 +342,29 @@ export function AddProductModal({ open, onClose }: AddProductModalProps) {
 
           {/* Image */}
           <div className="space-y-4">
-            <h3 className="text-sm font-medium text-slate-900">Image</h3>
-            <div className="space-y-2">
-              <Label htmlFor="imageUrl">Image URL</Label>
-              <Input
-                id="imageUrl"
-                type="url"
-                placeholder="https://example.com/image.jpg"
-                {...register("imageUrl")}
-                onChange={(e) => {
-                  register("imageUrl").onChange(e);
-                  handleImageUrlChange(e);
-                }}
-              />
-              {errors.imageUrl && (
-                <p className="text-sm text-red-600" role="alert">
-                  {errors.imageUrl.message}
-                </p>
+            <h3 className="text-sm font-medium text-slate-900">Product Image</h3>
+            <Controller
+              name="imageUrl"
+              control={control}
+              render={({ field }) => (
+                <ImageUpload
+                  value={field.value || null}
+                  onChange={(url) => field.onChange(url || "")}
+                  folder="products"
+                  disabled={isSubmitting}
+                  aspectRatio="square"
+                  maxSizeMB={10}
+                />
               )}
-              {imagePreview && (
-                <div className="mt-2 relative w-32 h-32 border border-slate-200 rounded-lg overflow-hidden">
-                  <img
-                    src={imagePreview}
-                    alt="Product preview"
-                    className="w-full h-full object-cover"
-                    onError={() => setImagePreview(null)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setValue("imageUrl", "");
-                      setImagePreview(null);
-                    }}
-                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-            </div>
+            />
+            {errors.imageUrl && (
+              <p className="text-sm text-red-600" role="alert">
+                {errors.imageUrl.message}
+              </p>
+            )}
+            <p className="text-xs text-slate-500">
+              Upload a product image. Recommended: Square image (1:1 ratio), max 10MB.
+            </p>
           </div>
 
           {/* Inventory */}

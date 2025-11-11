@@ -1,8 +1,9 @@
 "use client";
 
-import { Bell, Search, User } from "lucide-react";
+import { Search, User } from "lucide-react";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { Button } from "@/components/ui/button";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import Link from "next/link";
 
 interface AdminHeaderProps {
@@ -32,20 +33,13 @@ export function AdminHeader({ user }: AdminHeaderProps) {
         {/* Right section */}
         <div className="flex items-center gap-4">
           {/* Notifications */}
-          <button
-            type="button"
-            className="relative rounded-lg p-2 text-slate-700 hover:bg-slate-100"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-            <span className="sr-only">View notifications</span>
-          </button>
+          <NotificationDropdown />
 
           {/* User menu */}
           <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
             <div className="text-right">
               <p className="text-sm font-medium text-slate-900">{user.name || "User"}</p>
-              <p className="text-xs text-slate-500">{user.role || "Admin"}</p>
+              {/* <p className="text-xs text-slate-500">{user.role || "Admin"}</p> */}
             </div>
             <Button
               variant="ghost"

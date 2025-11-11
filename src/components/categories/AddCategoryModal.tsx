@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import {
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { createCategorySchema } from "@/lib/validations/categories";
 import { useCreateCategory } from "@/hooks/useCategories";
 import type { CreateCategoryData } from "@/types/category";
@@ -35,6 +36,7 @@ export function AddCategoryModal({ open, onClose }: AddCategoryModalProps) {
     reset,
     watch,
     setValue,
+    control,
   } = useForm<CreateCategoryData>({
     resolver: zodResolver(createCategorySchema),
     defaultValues: {
@@ -204,20 +206,31 @@ export function AddCategoryModal({ open, onClose }: AddCategoryModalProps) {
             )}
           </div>
 
-          {/* Image URL */}
+          {/* Category Image */}
           <div className="space-y-2">
-            <Label htmlFor="imageUrl">Image URL</Label>
-            <Input
-              id="imageUrl"
-              type="url"
-              placeholder="https://example.com/image.jpg"
-              {...register("imageUrl")}
+            <Label>Category Image</Label>
+            <Controller
+              name="imageUrl"
+              control={control}
+              render={({ field }) => (
+                <ImageUpload
+                  value={field.value || null}
+                  onChange={(url) => field.onChange(url || "")}
+                  folder="categories"
+                  disabled={isSubmitting}
+                  aspectRatio="square"
+                  maxSizeMB={5}
+                />
+              )}
             />
             {errors.imageUrl && (
               <p className="text-sm text-red-600" role="alert">
                 {errors.imageUrl.message}
               </p>
             )}
+            <p className="text-xs text-slate-500">
+              Upload a category image (optional). Recommended: Square image, max 5MB.
+            </p>
           </div>
 
           {/* Active Status */}

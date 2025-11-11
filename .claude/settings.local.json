@@ -5,7 +5,21 @@
       "Bash(npm run lint)",
       "Bash(npm run lint -- \"src/app/api/products/**/*.ts\" \"src/lib/validations/products.ts\")",
       "Bash(npx tsc --noEmit)",
-      "Bash(npx tsc --noEmit src/app/api/products/route.ts src/app/api/products/[id]/route.ts src/app/api/products/[id]/availability/route.ts src/lib/validations/products.ts)"
+      "Bash(npx tsc --noEmit src/app/api/products/route.ts src/app/api/products/[id]/route.ts src/app/api/products/[id]/availability/route.ts src/lib/validations/products.ts)",
+      "Bash(npm install:*)",
+      "Bash(.env)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx prisma:*)",
+      "Bash(.env.example)",
+      "Bash(cat:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run lint:*)",
+      "Bash(find:*)",
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": [],
     "ask": []

@@ -175,7 +175,7 @@ export function withRBAC(
   handler: (request: NextRequest, context: AuthContext) => Promise<Response>,
   options: RBACOptions = {}
 ) {
-  return async (request: NextRequest, ...args: any[]): Promise<Response> => {
+  return async (request: NextRequest, context?: any): Promise<Response> => {
     const result = await checkRBAC(options);
 
     if (!result.authorized || !result.user) {
@@ -190,7 +190,13 @@ export function withRBAC(
       );
     }
 
-    return handler(request, result.user, ...args);
+    // Merge auth context with Next.js route context (which includes params)
+    const mergedContext = {
+      ...result.user,
+      ...context,
+    };
+
+    return handler(request, mergedContext);
   };
 }
 
@@ -297,7 +303,7 @@ export function requireResourceOwnership(
   return (
     handler: (request: NextRequest, context: AuthContext) => Promise<Response>
   ) => {
-    return async (request: NextRequest, ...args: any[]): Promise<Response> => {
+    return async (request: NextRequest, routeContext?: any): Promise<Response> => {
       const result = await checkRBAC({});
 
       if (!result.authorized || !result.user) {
@@ -331,7 +337,13 @@ export function requireResourceOwnership(
         );
       }
 
-      return handler(request, result.user, ...args);
+      // Merge auth context with Next.js route context
+      const mergedContext = {
+        ...result.user,
+        ...routeContext,
+      };
+
+      return handler(request, mergedContext);
     };
   };
 }
@@ -397,7 +409,7 @@ export function withRBACAndAudit(
   handler: (request: NextRequest, context: AuthContext) => Promise<Response>,
   options: RBACOptions & { auditAction?: string } = {}
 ) {
-  return async (request: NextRequest, ...args: any[]): Promise<Response> => {
+  return async (request: NextRequest, context?: any): Promise<Response> => {
     const result = await checkRBAC(options);
 
     if (!result.authorized) {
@@ -420,6 +432,12 @@ export function withRBACAndAudit(
       );
     }
 
-    return handler(request, result.user!, ...args);
+    // Merge auth context with Next.js route context (which includes params)
+    const mergedContext = {
+      ...result.user!,
+      ...context,
+    };
+
+    return handler(request, mergedContext);
   };
 }

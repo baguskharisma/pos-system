@@ -16,6 +16,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { formatCurrency } from "@/lib/product-utils";
 import { toast } from "sonner";
+import { generateOrderNumber } from "@/lib/order-number";
 import type { POSProduct, POSCartItem, POSCart, POSCategory, HeldOrder, OrderType, CustomerInfo, PaymentInfo, CompletedOrder } from "@/types/pos";
 
 export default function POSPage() {
@@ -40,13 +41,11 @@ export default function POSPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
   const [completedOrders, setCompletedOrders] = useState<CompletedOrder[]>([]);
-  const [orderNumberCounter, setOrderNumberCounter] = useState(1);
 
   // Load held orders and completed orders from localStorage on mount
   useEffect(() => {
     const savedHeldOrders = localStorage.getItem("heldOrders");
     const savedCompletedOrders = localStorage.getItem("completedOrders");
-    const savedOrderCounter = localStorage.getItem("orderNumberCounter");
 
     if (savedHeldOrders) {
       try {
@@ -63,10 +62,6 @@ export default function POSPage() {
         console.error("Error loading completed orders:", error);
       }
     }
-
-    if (savedOrderCounter) {
-      setOrderNumberCounter(parseInt(savedOrderCounter, 10));
-    }
   }, []);
 
   // Save held orders to localStorage whenever they change
@@ -82,11 +77,6 @@ export default function POSPage() {
       localStorage.setItem("completedOrders", JSON.stringify(completedOrders));
     }
   }, [completedOrders]);
-
-  // Save order counter to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem("orderNumberCounter", orderNumberCounter.toString());
-  }, [orderNumberCounter]);
 
   // Fetch data
   const { data: productsData, isLoading: isLoadingProducts } = useProducts({
@@ -298,17 +288,19 @@ export default function POSPage() {
       return;
     }
 
+    // Generate order number for held order
+    const orderNumber = generateOrderNumber();
+
     const newHeldOrder: HeldOrder = {
       id: `held-${Date.now()}`,
       cart: { ...cart },
       heldAt: new Date().toISOString(),
-      orderNumber: orderNumberCounter,
+      orderNumber: orderNumber,
     };
 
     setHeldOrders((prev) => [newHeldOrder, ...prev]);
-    setOrderNumberCounter((prev) => prev + 1);
     clearCart();
-    toast.success(`Order #${orderNumberCounter} held successfully`);
+    toast.success(`Order ${orderNumber} held successfully`);
   };
 
   const handleRecallOrder = (order: HeldOrder) => {
@@ -322,13 +314,13 @@ export default function POSPage() {
 
     setCart(order.cart);
     setHeldOrders((prev) => prev.filter((o) => o.id !== order.id));
-    toast.success(`Order #${order.orderNumber} recalled`);
+    toast.success(`Order ${order.orderNumber} recalled`);
   };
 
   const handleDeleteHeldOrder = (orderId: string) => {
     const order = heldOrders.find((o) => o.id === orderId);
     setHeldOrders((prev) => prev.filter((o) => o.id !== orderId));
-    toast.success(`Order #${order?.orderNumber} deleted`);
+    toast.success(`Order ${order?.orderNumber} deleted`);
   };
 
   const handleCheckout = () => {
@@ -351,11 +343,11 @@ export default function POSPage() {
     setShowPaymentModal(true);
   };
 
-  const handlePaymentComplete = (payment: PaymentInfo) => {
-    // Create completed order
+  const handlePaymentComplete = (payment: PaymentInfo, orderNumber: string) => {
+    // Create completed order (order number already generated and saved in PaymentModal)
     const completedOrder: CompletedOrder = {
       id: `order-${Date.now()}`,
-      orderNumber: orderNumberCounter,
+      orderNumber: orderNumber,
       cart: { ...cart },
       payment,
       completedAt: new Date().toISOString(),
@@ -364,16 +356,13 @@ export default function POSPage() {
     // Save to completed orders
     setCompletedOrders((prev) => [completedOrder, ...prev]);
 
-    // Increment order counter
-    setOrderNumberCounter((prev) => prev + 1);
-
     // Clear cart
     clearCart();
 
     // Close modals
     setShowPaymentModal(false);
 
-    toast.success(`Order #${orderNumberCounter} completed successfully!`, {
+    toast.success(`Order ${orderNumber} completed successfully!`, {
       description: `Payment: ${payment.method} - ${formatCurrency(cart.total + payment.tipAmount)}`,
     });
   };
@@ -614,7 +603,6 @@ export default function POSPage() {
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         cart={cart}
-        orderNumber={orderNumberCounter}
         onPaymentComplete={handlePaymentComplete}
       />
     </div>

@@ -40,38 +40,60 @@ export const createProductSchema = z.object({
     .positive("Price must be a positive number")
     .max(99999999.99, "Price is too large")
     .multipleOf(0.01, "Price must have at most 2 decimal places"),
-  costPrice: z
-    .number()
-    .nonnegative("Cost price must be non-negative")
-    .max(99999999.99, "Cost price is too large")
-    .multipleOf(0.01, "Cost price must have at most 2 decimal places")
-    .optional()
-    .nullable(),
-  compareAtPrice: z
-    .number()
-    .positive("Compare at price must be a positive number")
-    .max(99999999.99, "Compare at price is too large")
-    .multipleOf(0.01, "Compare at price must have at most 2 decimal places")
-    .optional()
-    .nullable(),
+  costPrice: z.preprocess(
+    (val) =>
+      val === undefined || val === null || (typeof val === "number" && isNaN(val))
+        ? null
+        : val,
+    z
+      .number()
+      .nonnegative("Cost price must be non-negative")
+      .max(99999999.99, "Cost price is too large")
+      .multipleOf(0.01, "Cost price must have at most 2 decimal places")
+      .optional()
+      .nullable()
+  ),
+  compareAtPrice: z.preprocess(
+    (val) =>
+      val === undefined || val === null || (typeof val === "number" && isNaN(val))
+        ? null
+        : val,
+    z
+      .number()
+      .positive("Compare at price must be a positive number")
+      .max(99999999.99, "Compare at price is too large")
+      .multipleOf(0.01, "Compare at price must have at most 2 decimal places")
+      .optional()
+      .nullable()
+  ),
 
   // Tax
   taxable: z.boolean().optional().default(true),
-  taxRate: z
-    .number()
-    .min(0, "Tax rate must be non-negative")
-    .max(100, "Tax rate cannot exceed 100%")
-    .multipleOf(0.01, "Tax rate must have at most 2 decimal places")
-    .optional()
-    .nullable(),
+  taxRate: z.preprocess(
+    (val) =>
+      val === undefined || val === null || (typeof val === "number" && isNaN(val))
+        ? null
+        : val,
+    z
+      .number()
+      .min(0, "Tax rate must be non-negative")
+      .max(100, "Tax rate cannot exceed 100%")
+      .multipleOf(0.01, "Tax rate must have at most 2 decimal places")
+      .optional()
+      .nullable()
+  ),
 
   // Images
   imageUrl: z
     .string()
-    .url("Image URL must be a valid URL")
     .max(500, "Image URL must be at most 500 characters")
     .optional()
-    .nullable(),
+    .nullable()
+    .transform((val) => (val === "" ? null : val))
+    .refine(
+      (val) => !val || /^https?:\/\/.+/.test(val),
+      "Image URL must be a valid URL"
+    ),
   images: z
     .array(
       z.object({
@@ -175,38 +197,60 @@ export const updateProductSchema = z.object({
     .max(99999999.99, "Price is too large")
     .multipleOf(0.01, "Price must have at most 2 decimal places")
     .optional(),
-  costPrice: z
-    .number()
-    .nonnegative("Cost price must be non-negative")
-    .max(99999999.99, "Cost price is too large")
-    .multipleOf(0.01, "Cost price must have at most 2 decimal places")
-    .optional()
-    .nullable(),
-  compareAtPrice: z
-    .number()
-    .positive("Compare at price must be a positive number")
-    .max(99999999.99, "Compare at price is too large")
-    .multipleOf(0.01, "Compare at price must have at most 2 decimal places")
-    .optional()
-    .nullable(),
+  costPrice: z.preprocess(
+    (val) =>
+      val === undefined || val === null || (typeof val === "number" && isNaN(val))
+        ? null
+        : val,
+    z
+      .number()
+      .nonnegative("Cost price must be non-negative")
+      .max(99999999.99, "Cost price is too large")
+      .multipleOf(0.01, "Cost price must have at most 2 decimal places")
+      .optional()
+      .nullable()
+  ),
+  compareAtPrice: z.preprocess(
+    (val) =>
+      val === undefined || val === null || (typeof val === "number" && isNaN(val))
+        ? null
+        : val,
+    z
+      .number()
+      .positive("Compare at price must be a positive number")
+      .max(99999999.99, "Compare at price is too large")
+      .multipleOf(0.01, "Compare at price must have at most 2 decimal places")
+      .optional()
+      .nullable()
+  ),
 
   // Tax
   taxable: z.boolean().optional(),
-  taxRate: z
-    .number()
-    .min(0, "Tax rate must be non-negative")
-    .max(100, "Tax rate cannot exceed 100%")
-    .multipleOf(0.01, "Tax rate must have at most 2 decimal places")
-    .optional()
-    .nullable(),
+  taxRate: z.preprocess(
+    (val) =>
+      val === undefined || val === null || (typeof val === "number" && isNaN(val))
+        ? null
+        : val,
+    z
+      .number()
+      .min(0, "Tax rate must be non-negative")
+      .max(100, "Tax rate cannot exceed 100%")
+      .multipleOf(0.01, "Tax rate must have at most 2 decimal places")
+      .optional()
+      .nullable()
+  ),
 
   // Images
   imageUrl: z
     .string()
-    .url("Image URL must be a valid URL")
     .max(500, "Image URL must be at most 500 characters")
     .optional()
-    .nullable(),
+    .nullable()
+    .transform((val) => (val === "" ? null : val))
+    .refine(
+      (val) => !val || /^https?:\/\/.+/.test(val),
+      "Image URL must be a valid URL"
+    ),
   images: z
     .array(
       z.object({

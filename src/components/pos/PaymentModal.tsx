@@ -21,14 +21,15 @@ import {
 import { ReceiptPreview } from "./ReceiptPreview";
 import { formatCurrency } from "@/lib/product-utils";
 import { toast } from "sonner";
+import { useCreateOrder } from "@/hooks/useOrders";
+import { generateOrderNumber } from "@/lib/order-number";
 import type { POSCart, PaymentMethod, PaymentInfo } from "@/types/pos";
 
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   cart: POSCart;
-  orderNumber: number;
-  onPaymentComplete: (payment: PaymentInfo) => void;
+  onPaymentComplete: (payment: PaymentInfo, orderNumber: string) => void;
 }
 
 const PAYMENT_METHODS: Array<{
@@ -44,22 +45,10 @@ const PAYMENT_METHODS: Array<{
     color: "bg-green-500 hover:bg-green-600",
   },
   {
-    value: "CARD",
-    label: "Card",
+    value: "DIGITAL_PAYMENT",
+    label: "Digital Payment",
     icon: CreditCard,
     color: "bg-blue-500 hover:bg-blue-600",
-  },
-  {
-    value: "E_WALLET",
-    label: "E-Wallet",
-    icon: Wallet,
-    color: "bg-purple-500 hover:bg-purple-600",
-  },
-  {
-    value: "BANK_TRANSFER",
-    label: "Bank Transfer",
-    icon: Building2,
-    color: "bg-orange-500 hover:bg-orange-600",
   },
 ];
 
@@ -67,13 +56,16 @@ export function PaymentModal({
   isOpen,
   onClose,
   cart,
-  orderNumber,
   onPaymentComplete,
 }: PaymentModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("CASH");
   const [amountTendered, setAmountTendered] = useState<string>("");
   const [tipAmount, setTipAmount] = useState<number>(0);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [generatedOrderNumber, setGeneratedOrderNumber] = useState<string>("");
+
+  const createOrder = useCreateOrder();
 
   const totalWithTip = cart.total + tipAmount;
   const tenderedAmount = parseFloat(amountTendered) || 0;
@@ -94,6 +86,7 @@ export function PaymentModal({
       setAmountTendered("");
       setTipAmount(0);
       setShowReceipt(false);
+      setGeneratedOrderNumber("");
     }
   }, [isOpen]);
 
@@ -136,10 +129,13 @@ export function PaymentModal({
       return;
     }
 
+    // Generate order number for receipt preview
+    const orderNumber = generateOrderNumber();
+    setGeneratedOrderNumber(orderNumber);
     setShowReceipt(true);
   };
 
-  const handleCompletePayment = () => {
+  const handleCompletePayment = async () => {
     const payment: PaymentInfo = {
       method: selectedMethod,
       amountTendered: tenderedAmount,
@@ -147,9 +143,88 @@ export function PaymentModal({
       change,
     };
 
-    onPaymentComplete(payment);
-    toast.success("Payment completed successfully!");
-    onClose();
+    setIsProcessing(true);
+
+    try {
+      // Map POS payment methods to database payment methods
+      const paymentMethodMap: Record<PaymentMethod, string> = {
+        CASH: "CASH",
+        DIGITAL_PAYMENT: "DIGITAL_PAYMENT",
+      };
+
+      // Prepare order data for API - use the already generated order number
+      const orderData = {
+        orderNumber: generatedOrderNumber,
+        orderType: cart.orderType,
+        orderSource: "CASHIER" as const, // POS orders are made by cashiers
+
+        // Customer info (only include if valid)
+        customerName: cart.customerInfo?.name || null,
+        customerPhone: cart.customerInfo?.phone || null,
+        customerEmail: cart.customerInfo?.email && cart.customerInfo.email.includes("@")
+          ? cart.customerInfo.email
+          : null,
+        customerAddress: cart.customerInfo?.address || null,
+        tableNumber: cart.customerInfo?.tableNumber || null,
+
+        // Items
+        items: cart.items.map((item) => ({
+          productId: item.productId,
+          productName: item.name,
+          productSku: item.sku,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          costPrice: null,
+          discountAmount: 0,
+          discountPercent: null,
+          subtotal: item.price * item.quantity,
+          taxAmount: 0,
+          totalAmount: item.price * item.quantity,
+          notes: item.notes || null,
+        })),
+
+        // Amounts
+        subtotal: cart.subtotal,
+        discountAmount: cart.discountAmount || 0,
+        // Only send discountType if there's actually a discount
+        discountType: cart.discountAmount > 0 ? cart.discountType : null,
+        discountPercentage: cart.discountAmount > 0 && cart.discountType === "PERCENTAGE"
+          ? cart.discountPercentage
+          : null,
+        taxAmount: cart.taxAmount || 0,
+        taxRate: cart.taxEnabled && cart.taxRate ? cart.taxRate * 100 : null,
+        taxType: "INCLUSIVE" as const,
+        serviceCharge: 0,
+        deliveryFee: 0,
+        totalAmount: cart.total,
+
+        // Payment - Map to database payment method
+        paymentMethod: paymentMethodMap[selectedMethod],
+        paidAmount: totalWithTip, // Use total with tip instead of tendered
+        changeAmount: change || 0,
+        tipAmount: tipAmount || 0,
+
+        // Notes
+        notes: null,
+        internalNotes: null,
+      };
+
+      console.log("Sending order data:", orderData);
+
+      // Save to database
+      await createOrder.mutateAsync(orderData);
+
+      // Call the parent callback (for local state management) - pass order number
+      onPaymentComplete(payment, generatedOrderNumber);
+
+      // Reset processing state and close
+      setIsProcessing(false);
+      onClose();
+    } catch (error) {
+      console.error("Error completing payment:", error);
+      setIsProcessing(false);
+      // Toast is handled by the mutation hook
+    }
   };
 
   const handlePrintReceipt = () => {
@@ -170,7 +245,7 @@ export function PaymentModal({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Calculator className="h-5 w-5" />
-                Process Payment - Order #{orderNumber}
+                Process Payment
               </DialogTitle>
             </DialogHeader>
 
@@ -393,7 +468,7 @@ export function PaymentModal({
             </DialogHeader>
 
             <ReceiptPreview
-              orderNumber={orderNumber}
+              orderNumber={generatedOrderNumber}
               cart={cart}
               payment={{
                 method: selectedMethod,
@@ -409,8 +484,9 @@ export function PaymentModal({
               <Button
                 onClick={handleCompletePayment}
                 className="flex-1 bg-green-600 hover:bg-green-700"
+                disabled={isProcessing}
               >
-                Complete & New Order
+                {isProcessing ? "Processing..." : "Complete & New Order"}
               </Button>
             </div>
           </>

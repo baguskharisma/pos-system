@@ -36,11 +36,18 @@ export async function POST(request: Request) {
 
     // Check if data already exists
     const existingUsers = await prisma.user.count()
-    if (existingUsers > 0) {
+    const existingCategories = await prisma.category.count()
+    const existingProducts = await prisma.product.count()
+
+    if (existingUsers > 0 || existingCategories > 0 || existingProducts > 0) {
       return NextResponse.json(
         {
-          message: 'Database already seeded. Delete existing data first if you want to re-seed.',
-          existingUsers
+          message: 'Database already has data. Please clean the database first if you want to re-seed.',
+          existingData: {
+            users: existingUsers,
+            categories: existingCategories,
+            products: existingProducts
+          }
         },
         { status: 400 }
       )
